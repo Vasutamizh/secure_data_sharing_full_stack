@@ -4,4 +4,102 @@
 
 body {
     @apply bg-gray-50 text-gray-900;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ===== Toast Notification System ===== */
+.toast-container {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    max-width: 420px;
+    width: 100%;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border-radius: 0.625rem;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+    animation: toast-slide-in 0.35s cubic-bezier(0.21, 1.02, 0.73, 1);
+    pointer-events: auto;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.toast-success {
+    background: linear-gradient(135deg, #065f46ee, #047857dd);
+    color: #d1fae5;
+}
+
+.toast-error {
+    background: linear-gradient(135deg, #991b1bee, #b91c1cdd);
+    color: #fee2e2;
+}
+
+.toast-info {
+    background: linear-gradient(135deg, #1e40afee, #2563ebdd);
+    color: #dbeafe;
+}
+
+.toast-warning {
+    background: linear-gradient(135deg, #92400eee, #b45309dd);
+    color: #fef3c7;
+}
+
+.toast-icon {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 0.8rem;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.2);
+    margin-top: 1px;
+}
+
+.toast-message {
+    flex: 1;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    font-weight: 500;
+    margin: 0;
+}
+
+.toast-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.25rem;
+    cursor: pointer;
+    opacity: 0.6;
+    padding: 0;
+    line-height: 1;
+    transition: opacity 0.15s;
+}
+
+.toast-close:hover {
+    opacity: 1;
+}
+
+@keyframes toast-slide-in {
+    from {
+        transform: translateX(120%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }

@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { getUsers, createRecord } from '../services/api';
+import { useToast } from '../components/Toast';
 
 const DoctorADashboard = () => {
     const [patients, setPatients] = useState([]);
     const [selectedPatient, setSelectedPatient] = useState('');
     const [diagnosis, setDiagnosis] = useState('');
-    const [message, setMessage] = useState('');
+    const [loading, setLoading] = useState(false);
     const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    const toast = useToast();
 
     useEffect(() => {
         getUsers().then(res => {
@@ -18,17 +20,20 @@ const DoctorADashboard = () => {
         e.preventDefault();
         if (!selectedPatient || !diagnosis) return;
 
+        setLoading(true);
         try {
             await createRecord({
                 doctorId: currentUser.id,
                 patientId: selectedPatient,
                 diagnosis: diagnosis
             });
-            setMessage('Record created and encrypted successfully!');
+            toast.success('Record created and encrypted successfully!');
             setDiagnosis('');
         } catch (err) {
-            console.error(err);
-            setMessage('Error creating record.');
+            const msg = err.response?.data?.message || 'Failed to create record.';
+            toast.error(msg);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -65,12 +70,14 @@ const DoctorADashboard = () => {
                     />
                 </div>
 
-                <button type="submit" className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">
-                    Encrypt & Create Record
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    {loading ? 'Encrypting...' : 'Encrypt & Create Record'}
                 </button>
             </form>
-
-            {message && <p className={`mt-4 p-2 rounded ${message.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message}</p>}
         </div>
     );
 };

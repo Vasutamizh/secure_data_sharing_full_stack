@@ -47,29 +47,30 @@ public class PatientController {
     @Autowired
     private ObjectMapper objectMapper;
 
-	@GetMapping("/{patientId}/records")
-	public List<MedicalRecord> getRecords(@PathVariable("patientId") String patientId) {
-		System.out.println("Inside getRecords method.");
-		User patient = userRepository.findById(UUID.fromString(patientId))
-				.orElseThrow(() -> new RuntimeException("Patient not found"));
-		return medicalRecordRepository.findByPatient(patient);
-	}
-    
+    @GetMapping("/{patientId}/records")
+    public List<MedicalRecord> getRecords(@PathVariable("patientId") String patientId) {
+        System.out.println("Inside getRecords method.");
+        User patient = userRepository.findById(UUID.fromString(patientId))
+                .orElseThrow(() -> new RuntimeException("Patient not found"));
+        return medicalRecordRepository.findByPatient(patient);
+    }
+
     // Decrypt record for Patient (Demo purpose: Patient sees own data)
     @GetMapping("/{patientId}/records/{recordId}/decrypt")
-	public String decryptRecord(@PathVariable("patientId") String patientId, @PathVariable("recordId") String recordId)
-			throws Exception {
+    public String decryptRecord(@PathVariable("patientId") String patientId, @PathVariable("recordId") String recordId)
+            throws Exception {
         User patient = userRepository.findById(UUID.fromString(patientId)).orElseThrow();
         MedicalRecord record = medicalRecordRepository.findById(UUID.fromString(recordId)).orElseThrow();
-        
+
         // Recover Patient Private Key (Simulated, in real app key is on client)
         // We decode it from DB
         byte[] privKeyBytes = Base64.getDecoder().decode(patient.getPrivateKey());
         KeyFactory kf = KeyFactory.getInstance("EC", "BC");
         PrivateKey patientPrivKey = kf.generatePrivate(new PKCS8EncodedKeySpec(privKeyBytes));
-        
-        CryptographyService.EncryptedRecord encForPatient = objectMapper.readValue(record.getEncryptedData(), CryptographyService.EncryptedRecord.class);
-        
+
+        CryptographyService.EncryptedRecord encForPatient = objectMapper.readValue(record.getEncryptedData(),
+                CryptographyService.EncryptedRecord.class);
+
         return cryptoService.decryptData(encForPatient, patientPrivKey);
     }
 
@@ -77,44 +78,52 @@ public class PatientController {
     public SharedRecord shareRecord(@RequestBody ShareRecordRequest request) throws Exception {
         MedicalRecord originalRecord = medicalRecordRepository.findById(UUID.fromString(request.getRecordId()))
                 .orElseThrow(() -> new RuntimeException("Record not found"));
-        
+
         User patient = originalRecord.getPatient();
         User doctorB = userRepository.findById(UUID.fromString(request.getTargetDoctorId()))
                 .orElseThrow(() -> new RuntimeException("Doctor B not found"));
-        
+
+        // --- Duplicate Share Check ---
+        if (sharedRecordRepository.existsByOriginalRecordAndDoctorB(originalRecord, doctorB)) {
+            throw new RuntimeException("This record has already been shared with this doctor.");
+        }
+
         // --- Proxy Re-Encryption Logic ---
         // 1. Generate Re-Encryption Key (Simulated: Patient authorizes this)
         // We need Patient Priv Key and Doctor B Priv Key? NO.
-        // The Service method 'generateReEncryptionKey' needs PrivateKeys of both for the math: d_B - d_A.
+        // The Service method 'generateReEncryptionKey' needs PrivateKeys of both for
+        // the math: d_B - d_A.
         // Wait, 'generateReEncryptionKey' implementation: return dB.subtract(dA).
         // This means we need BOTH private keys loaded in memory.
-        // In this demo, since we store encrypted private keys (or simulated keys), we load them.
-        
+        // In this demo, since we store encrypted private keys (or simulated keys), we
+        // load them.
+
         byte[] patientPrivBytes = Base64.getDecoder().decode(patient.getPrivateKey());
         byte[] docBPrivBytes = Base64.getDecoder().decode(doctorB.getPrivateKey());
-        
+
         KeyFactory kf = KeyFactory.getInstance("EC", "BC");
         PrivateKey patientPrivKey = kf.generatePrivate(new PKCS8EncodedKeySpec(patientPrivBytes));
         PrivateKey docBPrivKey = kf.generatePrivate(new PKCS8EncodedKeySpec(docBPrivBytes));
-        
+
         // Generate Token
         BigInteger rk = cryptoService.generateReEncryptionKey(patientPrivKey, docBPrivKey);
-        
+
         // 2. Perform Transformation (Proxy Action)
         // Load original ciphertext
-        CryptographyService.EncryptedRecord encRecord = objectMapper.readValue(originalRecord.getEncryptedData(), CryptographyService.EncryptedRecord.class);
-        
+        CryptographyService.EncryptedRecord encRecord = objectMapper.readValue(originalRecord.getEncryptedData(),
+                CryptographyService.EncryptedRecord.class);
+
         // Transform
         CryptographyService.EncryptedRecord reEncRecord = cryptoService.reEncrypt(encRecord, rk);
-        
+
         // Save Shared Record
         String reEncJson = objectMapper.writeValueAsString(reEncRecord);
-        
+
         SharedRecord shared = new SharedRecord();
         shared.setOriginalRecord(originalRecord);
         shared.setDoctorB(doctorB);
         shared.setReEncryptedData(reEncJson);
-        
+
         return sharedRecordRepository.save(shared);
     }
 }

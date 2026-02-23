@@ -1,43 +1,55 @@
 import React, { useEffect, useState } from 'react';
 import { getPatientRecords, decryptRecord, getUsers, shareRecord } from '../services/api';
+import { useToast } from '../components/Toast';
 
 const PatientDashboard = () => {
     const [records, setRecords] = useState([]);
     const [doctors, setDoctors] = useState([]);
     const [decryptedData, setDecryptedData] = useState({});
-    const [sharingRecord, setSharingRecord] = useState(null); // ID of record being shared
+    const [sharingRecord, setSharingRecord] = useState(null);
+    const [loadingAction, setLoadingAction] = useState(null);
     const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    const toast = useToast();
 
     useEffect(() => {
         if (currentUser?.id) {
-            getPatientRecords(currentUser.id).then((res) => {
-                console.log(res);
-                setRecords(res.data)
-            });
+            getPatientRecords(currentUser.id)
+                .then(res => setRecords(res.data))
+                .catch(console.error);
         }
-        getUsers().then(res => setDoctors(res.data.filter(u => u.role === 'DOCTOR_B')));
+        getUsers()
+            .then(res => setDoctors(res.data.filter(u => u.role === 'DOCTOR_B')))
+            .catch(console.error);
     }, []);
 
     const handleDecrypt = async (recordId) => {
+        setLoadingAction(`decrypt-${recordId}`);
         try {
             const res = await decryptRecord(currentUser.id, recordId);
             setDecryptedData(prev => ({ ...prev, [recordId]: res.data }));
         } catch (err) {
-            alert('Decryption failed!');
+            const msg = err.response?.data?.message || 'Decryption failed.';
+            toast.error(msg);
+        } finally {
+            setLoadingAction(null);
         }
     };
 
     const handleShare = async (recordId, doctorId) => {
+        setLoadingAction(`share-${recordId}`);
         try {
             await shareRecord({
                 recordId: recordId,
                 targetDoctorId: doctorId
             });
-            alert('Record shared successfully via Proxy Re-Encryption!');
+            toast.success('Record shared via Proxy Re-Encryption!');
             setSharingRecord(null);
         } catch (err) {
-            console.error(err);
-            alert('Sharing failed.');
+            const msg = err.response?.data?.message || 'Sharing failed.';
+            toast.error(msg);
+            setSharingRecord(null);
+        } finally {
+            setLoadingAction(null);
         }
     };
 
@@ -55,14 +67,14 @@ const PatientDashboard = () => {
                             <div>
                                 <h3 className="font-semibold text-lg">{record.description || "Medical Record"}</h3>
                                 <p className="text-sm text-gray-500">Created: {new Date(record.createdAt).toLocaleString()}</p>
-                                <p className="text-sm text-gray-500">Dr. {record.doctorA.name}</p>
+                                <p className="text-sm text-gray-500">Dr. {record.doctorA?.name}</p>
                             </div>
                         </div>
 
                         <div className="bg-gray-50 p-4 rounded mb-4 font-mono text-xs break-all">
                             <strong>Encrypted Data (Server View):</strong>
                             <br />
-                            {record.encryptedData.substring(0, 100)}...
+                            {record.encryptedData?.substring(0, 100)}...
                         </div>
 
                         {decryptedData[record.id] && (
@@ -75,17 +87,19 @@ const PatientDashboard = () => {
                         <div className="flex gap-4 mt-4">
                             <button
                                 onClick={() => handleDecrypt(record.id)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                                disabled={loadingAction === `decrypt-${record.id}`}
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
-                                Decrypt Record
+                                {loadingAction === `decrypt-${record.id}` ? 'Decrypting...' : 'Decrypt Record'}
                             </button>
 
                             <div className="relative">
                                 <button
                                     onClick={() => setSharingRecord(sharingRecord === record.id ? null : record.id)}
-                                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm"
+                                    disabled={loadingAction === `share-${record.id}`}
+                                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
-                                    Share with Specialist
+                                    {loadingAction === `share-${record.id}` ? 'Sharing...' : 'Share with Specialist'}
                                 </button>
 
                                 {sharingRecord === record.id && (
@@ -106,7 +120,7 @@ const PatientDashboard = () => {
                         </div>
                     </div>
                 ))}
-                {records.length === 0 && <p>No records found.</p>}
+                {records.length === 0 && <p className="text-gray-500">No records found.</p>}
             </div>
         </div>
     );

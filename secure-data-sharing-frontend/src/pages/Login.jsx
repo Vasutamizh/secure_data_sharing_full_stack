@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUsers } from '../services/api';
+import { useToast } from '../components/Toast';
 
 const Login = () => {
     const [users, setUsers] = useState([]);
     const navigate = useNavigate();
+    const toast = useToast();
 
     useEffect(() => {
         getUsers()
             .then((res) => setUsers(res.data))
-            .catch((err) => console.error("Failed to load users", err));
+            .catch(() => toast.error('Could not connect to backend. Is the server running?'));
     }, []);
 
     const handleLogin = (user) => {
@@ -21,7 +23,7 @@ const Login = () => {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-[50vh]">
-            <h2 className="text-2xl font-bold mb-6">Select Role to Login</h2>
+            <h2 className="text-2xl font-bold mb-6">Select User to Login</h2>
             <div className="grid gap-4 w-full max-w-md">
                 {users.map((user) => (
                     <button
@@ -31,13 +33,17 @@ const Login = () => {
                     >
                         <div>
                             <span className="font-semibold block">{user.name}</span>
-                            <span className="text-sm text-gray-500">{user.role}</span>
+                            <span className="text-sm text-gray-500">{user.role.replace('_', ' ')}</span>
                         </div>
                         <span className="text-blue-600 text-sm">Login &rarr;</span>
                     </button>
                 ))}
                 {users.length === 0 && <p className="text-center text-gray-500">Loading users from backend...</p>}
             </div>
+            <p className="mt-6 text-sm text-gray-500">
+                Need a new account?{' '}
+                <a href="/register" className="text-blue-600 hover:underline font-medium">Register User</a>
+            </p>
         </div>
     );
 };

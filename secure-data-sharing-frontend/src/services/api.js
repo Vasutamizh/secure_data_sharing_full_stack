@@ -14,5 +14,6 @@ export const decryptRecord = (patientId, recordId) => api.get(`/patient/${patien
 export const shareRecord = (data) => api.post('/patient/share', data);
 export const getSharedRecords = (doctorId) => api.get(`/doctorB/${doctorId}/shared-records`);
 export const decryptSharedRecord = (doctorId, sharedId) => api.get(`/doctorB/${doctorId}/shared-records/${sharedId}/decrypt`);
+export const createUser = (data) => api.post('/users', data);
 
 export default api;
